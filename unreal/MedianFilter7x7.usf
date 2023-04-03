@@ -1,0 +1,42 @@
+// True median filter
+// This may be difficult to run as a postprocess in UE4 on a VR headset. Any larger crashes.
+// INPUTS: 
+//		SceneTexture::PostProcessInput0 Color -> Tex
+// 		SceneTexture::PostProcessInput Size -> viewsize
+// 		ScreenPosition ViewportUV -> uv
+// OUTPUT: float4 to emissive channel
+#define WINDOW_SIZE 7
+#define NUM_ELEMS WINDOW_SIZE * WINDOW_SIZE
+
+float3 values[NUM_ELEMS];
+float2 pixel_size = 1.0 / viewsize;
+float3 luminance_vals = float3(0.2126, 0.7152, 0.0722);
+
+int filter_extent = WINDOW_SIZE / 2;
+int index = 0;
+
+// Gather input values
+for (int x = -filter_extent; x <= filter_extent; x++)
+{
+    for (int y = -filter_extent; y <= filter_extent; y++)
+    {
+        float2 offset = float2(float(x), float(y)) * pixel_size;
+        values[index] = SceneTextureLookup(ViewportUVToSceneTextureUV(uv + offset, 0), 0, true).rgb;
+        index++;
+    }
+}
+
+for(int i = 1; i < NUM_ELEMS; i++)
+{
+	float3 key = values[i];
+	int j = i - 1;
+	while(j >= 0 && dot(values[j], luminance_vals) > dot(key, luminance_vals))
+	{
+		values[j + 1] = values[j];
+		j--;
+	}
+	values[j + 1] = key;
+}
+
+// Return the median value
+return float4(values[(NUM_ELEMS - 1) / 2], 1.0);
